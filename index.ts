@@ -121,6 +121,36 @@ app.ai.action(AI.FlaggedOutputActionName, async (context, state, data) => {
   return false;
 });
 
+
+function getMockAlerts()
+{
+    return "{'severity' : 2}.";
+}
+
+
+function getMockAlerts1(userPrincipalName: string)
+{
+    return "The alerts for " + userPrincipalName + "{'Name': 'Diego'}, {'severity' : 2} ";
+}
+
+// Get me alerts -> Call backend for alerts when given upn. -> Feed into AI -> AI returns generated response -> Display Response
+
+app.ai.action(
+    'RetrieveUserAlerts',
+    async (context: TurnContext, state: ApplicationTurnState, data: Record<string, any>) => {
+        // input: upn
+        // out: alerts
+        // Call backend for alerts when given upn.
+        await context.sendActivity(`Response: ${JSON.stringify(data)}`);
+        return true;
+    }
+
+);
+
+app.ai.prompts.addFunction('getMockAlerts', async (context, state) => {
+    return getMockAlerts()
+});
+
 app.message('/history', async (context, state) => {
   const history = ConversationHistory.toString(state, 2000, '\n\n');
   await context.sendActivity(history);
