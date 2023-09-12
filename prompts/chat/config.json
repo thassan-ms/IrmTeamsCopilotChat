@@ -10,7 +10,7 @@
     "frequency_penalty": 0.0,
     "stop_sequences": [
         "Human:",
-        "Irm Copilot:"
+        "IRM Copilot:"
     ]
     }
 }
