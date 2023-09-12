@@ -1,0 +1,112 @@
+[
+    {
+        "IRMRiskyUserId": "8b7ea9ab-aaff-7bec-7f28-0f3918b4f93b",
+        "UserPrincipalName": "admin@ediscoveryexperiencetest.onmicrosoft.com",
+        "UserObjectId": "7c8ea9ab-aaff-7bec-7f28-0f3918b4f93d",
+        "SequentialActivities": [
+            {
+                "ActivityId": "899d8883-4c34-5223-c26a-f18fe20ee354",
+                "Name": "Files downloaded, obfuscated, exfiltrated, then deleted",
+                "Category": "Sequence",
+                "SequenceActivities": [
+                    "Files downloaded from SharePoint",
+                    "Files renamed",
+                    "SharePoint files shared",
+                    "Files deleted"
+                ],
+                "Details": [
+                    {
+                        "ActivityDetail": "",
+                        "ActivityCount": 4,
+                        "Values": [
+                            "UserCount=3",
+                            "SharePointSitesCount=1",
+                            "IsDomainBlacklisted=TRUE",
+                            "DomainNames=gmail.com,xyz.com",
+                            "PrioritizedContent=TRUE",
+                            "PriorityFileExtensionsCount=2",
+                            "SensitivityLabelCount=5",
+                            "SensitivityInfoCount=25",
+                            "IsExternalDomain=TRUE"
+                        ]
+                    }
+                ],
+                "IsUnusualActivity": null,
+                "StartDateTime": "2023-06-12T00:00:00Z",
+                "EndDateTime": "2023-06-15T23:59:59Z"
+            },
+            {
+                "Id": "765d8883-4c34-5223-c26a-f18fe20ee890",
+                "Name": "Files collected and exfiltrated",
+                "Category": "Sequence",
+                "SequenceActivities": [
+                    "Files downloaded from SharePoint",
+                    "Emails with attachments sent outside the organization"
+                ],
+                "Details": [
+                    {
+                        "ActivityDetail": "",
+                        "ActivityCount": 10,
+                        "Values": [
+                            "UserCount=3",
+                            "SharePointSitesCount=1",
+                            "IsDomainBlacklisted=TRUE",
+                            "DomainNames=gmail.com,",
+                            "PrioritizedContent=TRUE",
+                            "PriorityFileExtensionsCount=2",
+                            "SensitivityLabelCount=5",
+                            "SensitivityInfoCount=25",
+                            "IsExternalDomain=TRUE"
+                        ]
+                    }
+                ],
+                "IsUnusualActivity": null,
+                "StartDateTime": "2023-06-10T00:00:00Z",
+                "EndDateTime": "2023-06-11T23:59:59Z"
+            }
+        ],
+        "ComparativeActivities": [
+            {
+                "ActivityId": null,
+                "Category": "Cumulative exfiltration",
+                "Name": "Cumulative exfiltration activities",
+                "Details": [
+                    {
+                        "ActivityDetail": "Emails sent with attachments outside the organization with prioritized content",
+                        "ActivityCount": null,
+                        "ComparedAgainst": [
+                            "All users in organization"
+                        ],
+                        "Values": [
+                            "PrioritizedContent=TRUE",
+                            "Percentage=100"
+                        ]
+                    },
+                    {
+                        "ActivityDetail": "All exfiltration activities",
+                        "ActivityCount": 10,
+                        "ComparedAgainst": [
+                            "All users in organization"
+                        ],
+                        "Values": [
+                            "Percentage=75"
+                        ]
+                    },
+                    {
+                        "ActivityDetail": "Shared SharePoint files externally",
+                        "ActivityCount": 5,
+                        "ComparedAgainst": [
+                            "users that access same SharePoint sites"
+                        ],
+                        "Values": [
+                            "Percentage=50"
+                        ]
+                    }
+                ],
+                "IsUnusualActivity": null,
+                "StartDateTime": "2023-06-27T00:00:00Z",
+                "EndDateTime": "2023-06-29T23:59:59Z"
+            }
+        ]
+   }
+]

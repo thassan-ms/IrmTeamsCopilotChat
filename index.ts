@@ -1,5 +1,9 @@
 // Import required packages
 import * as restify from "restify";
+import * as fs from 'fs';
+import { promisify } from 'util';
+
+const readFileAsync = promisify(fs.readFile);
 
 // Import required bot services.
 // See https://aka.ms/bot-services to learn more about the different parts of a bot.
@@ -206,3 +210,18 @@ server.post("/api/messages", async (req, res) => {
     await app.run(context);
   });
 });
+
+async function readJsonFile(riskyUser: string): Promise<any> {
+  const filePath = 'data/alerts.json';
+
+  try {
+    const fileContent = await readFileAsync(filePath, 'utf8');
+    const jsonData = JSON.parse(fileContent).filter((item) => {
+      return item.UserPrincipalName.toLowerCase().includes(riskyUser.toLowerCase());
+    });
+  
+    return jsonData;
+  } catch (error) {
+    throw new Error(`Error reading JSON file: ${error}`);
+  }
+}

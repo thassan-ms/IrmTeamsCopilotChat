@@ -1,6 +1,6 @@
 {
     "schema": 1,
-    "description": "Chat with insider risk managment expert",
+    "description": "Summarizes the current user's alerts",
     "type": "completion",
     "completion": {
     "max_tokens": 150,
@@ -10,7 +10,7 @@
     "frequency_penalty": 0.0,
     "stop_sequences": [
         "Human:",
-        "Irm Copilot:"
+        "IRM Copilot:"
     ]
     }
 }
