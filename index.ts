@@ -68,7 +68,13 @@ import { Application, ConversationHistory, DefaultPromptManager, DefaultTurnStat
 import path from "path";
 
 // eslint-disable-next-line @typescript-eslint/no-empty-interface
-interface ConversationState {}
+interface ConversationState {
+  riskyUser: string;
+  subscribedUser: string;
+  alertsList: {[key: string]: any};
+  insightsList: {[key: string]: any};
+  subscribers: string[];
+}
 type ApplicationTurnState = DefaultTurnState<ConversationState>;
 
 // Create AI components
@@ -89,7 +95,7 @@ const planner = new AzureOpenAIPlanner({
 //   model: model2,
 //   moderate: 'both'
 // });
-const promptManager = new DefaultPromptManager(path.join(__dirname, './prompts' ));
+const promptManager = new DefaultPromptManager<ApplicationTurnState>(path.join(__dirname, './prompts' ));
 
 // Define storage and application
 const storage = new MemoryStorage();
@@ -106,6 +112,33 @@ const app = new Application<ApplicationTurnState>({
   }
 });
 
+interface EntityData {
+  riskyUser: string; // <- populated by GPT
+  subscribedUser: string;
+}
+
+const getAlertsForUser = (user: string) => {
+  const alertsData = {
+    "diego": {
+      "alertId": "1",
+      "severity": "high",
+      "riskScore": "100",
+    },
+    "tasmiha":{
+      "alertId": "2",
+      "severity": "medium",
+      "riskScore": "50",
+    },
+    "moise": {
+      "alertId": "3",
+      "severity": "low",
+      "riskScore": "10",
+    }
+  }
+
+  return alertsData[user] ?? "{Unknown}"
+}
+
 app.ai.action(AI.RateLimitedActionName, async (context, state, data) => {
   await context.sendActivity(`Your request was rate limited: ${JSON.stringify(data)}`);
   return false;
@@ -121,34 +154,45 @@ app.ai.action(AI.FlaggedOutputActionName, async (context, state, data) => {
   return false;
 });
 
+app.ai.action("RetrieveAlerts", async (context, state, data: EntityData) => {
+  await context.sendActivity("Retrieving alerts for user: " + data.riskyUser);
+  state.conversation.value.riskyUser = data.riskyUser
+  state.conversation.value.alertsList = getAlertsForUser(data.riskyUser)
+  return false;
+});
 
-function getMockAlerts()
-{
-    return "{'severity' : 2}.";
-}
+app.ai.action("SummarizeAlert", async (context, state, data: EntityData) => {
+  await context.sendActivity("Summarizing alert: " + data.riskyUser);
+  state.conversation.value.riskyUser = data.riskyUser
+  state.conversation.value.alertsList = getAlertsForUser(data.riskyUser)
+  await app.ai.chain(context, state, 'summarize');
+  return false
+});
 
+app.ai.action("SetupUserReminder", async (context, state, data: EntityData) => {
+  if (!state.conversation.value.subscribers) {
+    state.conversation.value.subscribers = [];
+  }
+  state.conversation.value.subscribers.push(data.subscribedUser);
+  await context.sendActivity("Subscribing to alerts for user: " + data.subscribedUser);
+  return false;
+});
 
-function getMockAlerts1(userPrincipalName: string)
-{
-    return "The alerts for " + userPrincipalName + "{'Name': 'Diego'}, {'severity' : 2} ";
-}
+app.ai.action("RemoveUserReminder", async (context, state, data: EntityData) => {
+  const index = state.conversation.value.subscribers.indexOf(data.subscribedUser);
+  if (index !== -1) {
+    // Element found in the subscribers array, remove it
+    state.conversation.value.subscribers.splice(index, 1);
+    await context.sendActivity("Removed user reminder for: " + data.subscribedUser);
+  } else {
+    await context.sendActivity("User reminder not found for: " + data.subscribedUser);
+  }
+  return false;
+});
 
-// Get me alerts -> Call backend for alerts when given upn. -> Feed into AI -> AI returns generated response -> Display Response
-
-app.ai.action(
-    'RetrieveUserAlerts',
-    async (context: TurnContext, state: ApplicationTurnState, data: Record<string, any>) => {
-        // input: upn
-        // out: alerts
-        // Call backend for alerts when given upn.
-        await context.sendActivity(`Response: ${JSON.stringify(data)}`);
-        return true;
-    }
-
-);
-
-app.ai.prompts.addFunction('getMockAlerts', async (context, state) => {
-    return getMockAlerts()
+app.ai.action("DisplayReminderUserList", async (context, state, data: EntityData) => {
+  await context.sendActivity("You are currently subscribed to reminders for the following users: " + state.conversation.value.subscribers);
+  return false;
 });
 
 app.message('/history', async (context, state) => {
