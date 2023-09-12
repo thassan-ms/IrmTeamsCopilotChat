@@ -49,10 +49,15 @@ const onTurnErrorHandler = async (context: TurnContext, error: Error) => {
     "TurnError"
   );
 
-  // Send a message to the user
-  await context.sendActivity(`The bot encountered unhandled error (fixed):\n ${error}`);
-  await context.sendActivity(`${error.stack}`)
-  await context.sendActivity("To continue to run this bot, please fix the bot source code.");
+  if (error.message.includes("Cannot read properties of undefined (reading '0')")) {
+    await context.sendActivity("Your request was throttled, please try again.")
+  }
+  else {
+    // Send a message to the user
+    await context.sendActivity(`The bot encountered unhandled error (fixed):\n ${error}`);
+    await context.sendActivity(`${error.stack}`)
+    await context.sendActivity("To continue to run this bot, please fix the bot source code.");
+  }
 };
 
 // Set the onTurnError for the singleton CloudAdapter.
@@ -68,18 +73,24 @@ server.listen(process.env.port || process.env.PORT || 3978, () => {
   console.log(`\nBot Started, ${server.name} listening to ${server.url}`);
 });
 
-import { Application, ConversationHistory, DefaultPromptManager, DefaultTurnState, AI, AzureOpenAIPlanner } from '@microsoft/teams-ai';
+import { Application, ConversationHistory, DefaultPromptManager, DefaultTurnState, AI, AzureOpenAIPlanner, DefaultUserState, DefaultTempState } from '@microsoft/teams-ai';
 import path from "path";
 
 // eslint-disable-next-line @typescript-eslint/no-empty-interface
 interface ConversationState {
   riskyUser: string;
   subscribedUser: string;
-  alertsList: {[key: string]: any};
+  alertsList: {[key: string]: any}[];
   insightsList: {[key: string]: any};
   subscribers: string[];
 }
-type ApplicationTurnState = DefaultTurnState<ConversationState>;
+type UserState = DefaultUserState;
+
+interface TempState extends DefaultTempState {
+  alertsList: {[key: string]: any}[];
+}
+
+type ApplicationTurnState = DefaultTurnState<ConversationState, UserState, TempState>;
 
 // Create AI components
 const apiKey = config.openAIKey
@@ -137,30 +148,32 @@ app.ai.action(AI.FlaggedOutputActionName, async (context, state, data) => {
 });
 
 app.ai.action("RetrieveAlerts", async (context, state, data: EntityData) => {
-  await context.sendActivity("Retrieving alerts for user: " + data.riskyUser);
   state.conversation.value.riskyUser = data.riskyUser
-  readJsonFile(data.riskyUser)
-  .then((jsonData) => {
-    state.conversation.value.alertsList = jsonData.length > 0 ? jsonData : "Unknown"
-    console.log("state is:" + JSON.stringify(state.conversation.value.alertsList))
-  })
-  .catch((error) => {
-    console.error(error);
-  });  await app.ai.chain(context, state, 'summarize');
+  await readJsonFile(data.riskyUser)
+    .then((jsonData) => {
+      state.conversation.value.alertsList = jsonData.length > 0 ? jsonData : "Unknown"
+      console.log("Alerts found: " + JSON.stringify(state.conversation.value.alertsList))
+    })
+    .catch((error) => {
+      console.error(error);
+    });  
+  await app.ai.chain(context, state, 'summarize');
   return true;
 });
 
 app.ai.action("SummarizeAlert", async (context, state, data: EntityData) => {
-  await context.sendActivity("Summarizing alert: " + data.riskyUser);
   state.conversation.value.riskyUser = data.riskyUser
-  readJsonFile(data.riskyUser)
-  .then((jsonData) => {
-    state.conversation.value.alertsList = jsonData.length > 0 ? jsonData : "Unknown"
-    console.log("state is:" + JSON.stringify(state.conversation.value.alertsList))
-  })
-  .catch((error) => {
-    console.error(error);
-  });  await app.ai.chain(context, state, 'summarize');
+  await readJsonFile(data.riskyUser)
+    .then((jsonData) => {
+      state.conversation.value.alertsList = jsonData.length > 0 ? jsonData : "Unknown"
+      console.log("Alerts found:" + JSON.stringify(state.conversation.value.alertsList))
+      //console.log("Alerts found")
+    })
+    .catch((error) => {
+      console.error(error);
+    });
+  state.temp.value.alertsList = state.conversation.value.alertsList
+  await app.ai.chain(context, state, 'summarize');
   return true
 });
 
@@ -170,7 +183,7 @@ app.ai.action("SetupUserReminder", async (context, state, data: EntityData) => {
   }
   state.conversation.value.subscribers.push(data.subscribedUser);
   await context.sendActivity("Subscribing to alerts for user: " + data.subscribedUser);
-  return false;
+  return true;
 });
 
 app.ai.action("RemoveUserReminder", async (context, state, data: EntityData) => {
@@ -182,12 +195,12 @@ app.ai.action("RemoveUserReminder", async (context, state, data: EntityData) => 
   } else {
     await context.sendActivity("User reminder not found for: " + data.subscribedUser);
   }
-  return false;
+  return true;
 });
 
 app.ai.action("DisplayReminderUserList", async (context, state, data: EntityData) => {
   await context.sendActivity("You are currently subscribed to reminders for the following users: " + state.conversation.value.subscribers);
-  return false;
+  return true;
 });
 
 app.message('/history', async (context, state) => {
