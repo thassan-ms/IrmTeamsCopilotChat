@@ -124,13 +124,7 @@ app.ai.action(AI.FlaggedOutputActionName, async (context, state, data) => {
 
 function getMockAlerts()
 {
-    return "{'severity' : 2}.";
-}
-
-
-function getMockAlerts1(userPrincipalName: string)
-{
-    return "The alerts for " + userPrincipalName + "{'Name': 'Diego'}, {'severity' : 2} ";
+    return "{'Name': 'Ashish'}, {'severity' : 2} ";
 }
 
 // Get me alerts -> Call backend for alerts when given upn. -> Feed into AI -> AI returns generated response -> Display Response
@@ -144,6 +138,18 @@ app.ai.action(
         await context.sendActivity(`Response: ${JSON.stringify(data)}`);
         return true;
     }
+
+);
+
+app.ai.action(
+  'RetrieveUserAlertsForUser',
+  async (context: TurnContext, state: ApplicationTurnState, data: Record<string, any>) => {
+      // input: upn
+      // out: alerts
+      // Call backend for alerts when given upn.
+      await context.sendActivity(`Response: ${JSON.stringify(data)}`);
+      return true;
+  }
 
 );
 
