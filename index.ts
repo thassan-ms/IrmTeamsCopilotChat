@@ -74,8 +74,10 @@ import path from "path";
 // eslint-disable-next-line @typescript-eslint/no-empty-interface
 interface ConversationState {
   riskyUser: string;
+  subscribedUser: string;
   alertsList: {[key: string]: any};
   insightsList: {[key: string]: any};
+  subscribers: string[];
 }
 type ApplicationTurnState = DefaultTurnState<ConversationState>;
 
@@ -116,6 +118,29 @@ const app = new Application<ApplicationTurnState>({
 
 interface EntityData {
   riskyUser: string; // <- populated by GPT
+  subscribedUser: string;
+}
+
+const getAlertsForUser = (user: string) => {
+  const alertsData = {
+    "diego": {
+      "alertId": "1",
+      "severity": "high",
+      "riskScore": "100",
+    },
+    "tasmiha":{
+      "alertId": "2",
+      "severity": "medium",
+      "riskScore": "50",
+    },
+    "moise": {
+      "alertId": "3",
+      "severity": "low",
+      "riskScore": "10",
+    }
+  }
+
+  return alertsData[user] ?? "{Unknown}"
 }
 
 app.ai.action(AI.RateLimitedActionName, async (context, state, data) => {
@@ -136,34 +161,42 @@ app.ai.action(AI.FlaggedOutputActionName, async (context, state, data) => {
 app.ai.action("RetrieveAlerts", async (context, state, data: EntityData) => {
   await context.sendActivity("Retrieving alerts for user: " + data.riskyUser);
   state.conversation.value.riskyUser = data.riskyUser
-  
-  readJsonFile(data.riskyUser)
-  .then((jsonData) => {
-    state.conversation.value.alertsList = jsonData.length > 0 ? jsonData : "Unknown"
-    console.log("state is:" + JSON.stringify(state.conversation.value.alertsList))
-  })
-  .catch((error) => {
-    console.error(error);
-  });
-
+  state.conversation.value.alertsList = getAlertsForUser(data.riskyUser)
   return false;
 });
 
 app.ai.action("SummarizeAlert", async (context, state, data: EntityData) => {
   await context.sendActivity("Summarizing alert: " + data.riskyUser);
   state.conversation.value.riskyUser = data.riskyUser
-  const filePath = 'data/alerts.json';
-  readJsonFile(data.riskyUser)
-  .then((jsonData) => {
-    state.conversation.value.alertsList = jsonData.length > 0 ? jsonData : "Unknown"
-    console.log("state is:" + JSON.stringify(state.conversation.value.alertsList))
-  })
-  .catch((error) => {
-    console.error(error);
-  });
-  
+  state.conversation.value.alertsList = getAlertsForUser(data.riskyUser)
   await app.ai.chain(context, state, 'summarize');
   return false
+});
+
+app.ai.action("SetupUserReminder", async (context, state, data: EntityData) => {
+  if (!state.conversation.value.subscribers) {
+    state.conversation.value.subscribers = [];
+  }
+  state.conversation.value.subscribers.push(data.subscribedUser);
+  await context.sendActivity("Subscribing to alerts for user: " + data.subscribedUser);
+  return false;
+});
+
+app.ai.action("RemoveUserReminder", async (context, state, data: EntityData) => {
+  const index = state.conversation.value.subscribers.indexOf(data.subscribedUser);
+  if (index !== -1) {
+    // Element found in the subscribers array, remove it
+    state.conversation.value.subscribers.splice(index, 1);
+    await context.sendActivity("Removed user reminder for: " + data.subscribedUser);
+  } else {
+    await context.sendActivity("User reminder not found for: " + data.subscribedUser);
+  }
+  return false;
+});
+
+app.ai.action("DisplayReminderUserList", async (context, state, data: EntityData) => {
+  await context.sendActivity("You are currently subscribed to reminders for the following users: " + state.conversation.value.subscribers);
+  return false;
 });
 
 app.message('/history', async (context, state) => {
