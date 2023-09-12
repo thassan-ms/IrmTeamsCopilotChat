@@ -121,28 +121,6 @@ interface EntityData {
   subscribedUser: string;
 }
 
-const getAlertsForUser = (user: string) => {
-  const alertsData = {
-    "diego": {
-      "alertId": "1",
-      "severity": "high",
-      "riskScore": "100",
-    },
-    "tasmiha":{
-      "alertId": "2",
-      "severity": "medium",
-      "riskScore": "50",
-    },
-    "moise": {
-      "alertId": "3",
-      "severity": "low",
-      "riskScore": "10",
-    }
-  }
-
-  return alertsData[user] ?? "{Unknown}"
-}
-
 app.ai.action(AI.RateLimitedActionName, async (context, state, data) => {
   await context.sendActivity(`Your request was rate limited: ${JSON.stringify(data)}`);
   return false;
@@ -161,16 +139,29 @@ app.ai.action(AI.FlaggedOutputActionName, async (context, state, data) => {
 app.ai.action("RetrieveAlerts", async (context, state, data: EntityData) => {
   await context.sendActivity("Retrieving alerts for user: " + data.riskyUser);
   state.conversation.value.riskyUser = data.riskyUser
-  state.conversation.value.alertsList = getAlertsForUser(data.riskyUser)
-  return false;
+  readJsonFile(data.riskyUser)
+  .then((jsonData) => {
+    state.conversation.value.alertsList = jsonData.length > 0 ? jsonData : "Unknown"
+    console.log("state is:" + JSON.stringify(state.conversation.value.alertsList))
+  })
+  .catch((error) => {
+    console.error(error);
+  });  await app.ai.chain(context, state, 'summarize');
+  return true;
 });
 
 app.ai.action("SummarizeAlert", async (context, state, data: EntityData) => {
   await context.sendActivity("Summarizing alert: " + data.riskyUser);
   state.conversation.value.riskyUser = data.riskyUser
-  state.conversation.value.alertsList = getAlertsForUser(data.riskyUser)
-  await app.ai.chain(context, state, 'summarize');
-  return false
+  readJsonFile(data.riskyUser)
+  .then((jsonData) => {
+    state.conversation.value.alertsList = jsonData.length > 0 ? jsonData : "Unknown"
+    console.log("state is:" + JSON.stringify(state.conversation.value.alertsList))
+  })
+  .catch((error) => {
+    console.error(error);
+  });  await app.ai.chain(context, state, 'summarize');
+  return true
 });
 
 app.ai.action("SetupUserReminder", async (context, state, data: EntityData) => {
