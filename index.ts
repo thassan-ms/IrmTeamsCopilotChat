@@ -80,14 +80,20 @@ import path from "path";
 interface ConversationState {
   riskyUser: string;
   subscribedUser: string;
-  alertsList: {[key: string]: any}[];
+  alertsList: AlertsData[];
   insightsList: {[key: string]: any};
   subscribers: string[];
 }
 type UserState = DefaultUserState;
 
 interface TempState extends DefaultTempState {
-  alertsList: {[key: string]: any}[];
+  alertsList: AlertsData[];
+}
+
+interface AlertsData {
+  UserPrincipalName: string;
+  SequentialActivities: {[key: string]: any}[];
+  ComparativeActivities: {[key: string]: any}[];
 }
 
 type ApplicationTurnState = DefaultTurnState<ConversationState, UserState, TempState>;
@@ -151,30 +157,41 @@ app.ai.action("RetrieveAlerts", async (context, state, data: EntityData) => {
   state.conversation.value.riskyUser = data.riskyUser
   await readJsonFile(data.riskyUser)
     .then((jsonData) => {
-      state.conversation.value.alertsList = jsonData.length > 0 ? jsonData : "Unknown"
+      state.conversation.value.alertsList = jsonData.length > 0 ? jsonData : []
       console.log("Alerts found: " + JSON.stringify(state.conversation.value.alertsList))
     })
     .catch((error) => {
       console.error(error);
-    });  
-  await app.ai.chain(context, state, 'summarize');
-  return true;
+    });
+  if (state.conversation.value.alertsList.length > 0) {
+    state.temp.value.alertsList = state.conversation.value.alertsList
+    await app.ai.chain(context, state, 'summarize');
+  }
+  else {
+    await context.sendActivity("No alerts found for user: " + data.riskyUser);
+  }
+  return false;
 });
 
 app.ai.action("SummarizeAlert", async (context, state, data: EntityData) => {
   state.conversation.value.riskyUser = data.riskyUser
   await readJsonFile(data.riskyUser)
     .then((jsonData) => {
-      state.conversation.value.alertsList = jsonData.length > 0 ? jsonData : "Unknown"
+      state.conversation.value.alertsList = jsonData.length > 0 ? jsonData : []
       console.log("Alerts found:" + JSON.stringify(state.conversation.value.alertsList))
       //console.log("Alerts found")
     })
     .catch((error) => {
       console.error(error);
     });
-  state.temp.value.alertsList = state.conversation.value.alertsList
-  await app.ai.chain(context, state, 'summarize');
-  return true
+  if (state.conversation.value.alertsList.length > 0) {
+    state.temp.value.alertsList = state.conversation.value.alertsList
+    await app.ai.chain(context, state, 'summarize');
+  }
+  else {
+    await context.sendActivity("No alerts found for user: " + data.riskyUser);
+  }
+  return false
 });
 
 app.ai.action("SetupUserReminder", async (context, state, data: EntityData) => {
@@ -215,7 +232,7 @@ server.post("/api/messages", async (req, res) => {
   });
 });
 
-async function readJsonFile(riskyUser: string): Promise<any> {
+async function readJsonFile(riskyUser: string): Promise<AlertsData[]> {
   const filePath = 'data/alerts.json';
 
   try {

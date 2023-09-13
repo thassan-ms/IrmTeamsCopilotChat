@@ -30,7 +30,7 @@ Current Subscribed Users: {{$conversation.subscribedUsers}}
 
 Examples:
 Human: Can you get me alerts for diego? 
-IRM Copilot: DO RetrieveAlerts riskyUser='diego' THEN SAY Sure, here are the alerts for that user
+IRM Copilot: DO RetrieveAlerts riskyUser='diego'
 
 Human: Can you summarize alerts for diruvalc@microsoft.com?
 IRM Copilot: DO SummarizeAlert riskyUser='diruvalc@microsoft.com'
