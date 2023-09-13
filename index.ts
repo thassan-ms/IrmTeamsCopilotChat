@@ -15,6 +15,20 @@ import {
   MemoryStorage,
   CardFactory,
 } from "botbuilder";
+import { AdaptiveCards } from "@microsoft/adaptivecards-tools";
+
+const {  BotFrameworkAdapter } = require("botbuilder");
+const { TeamsBot } = require("./teamsBot");
+
+// // Create adapter.
+// // See https://aka.ms/about-bot-adapter to learn more about adapters.
+const notAdapter = new BotFrameworkAdapter({
+  appId: process.env.BOT_ID,
+  appPassword: process.env.BOT_PASSWORD,
+});
+
+// Create the bot that will handle incoming messages.
+const conversationReferences = {};
 
 // This bot's main dialog.
 //import { TeamsBot } from "./teamsBot";
@@ -123,15 +137,18 @@ const promptManager = new DefaultPromptManager<ApplicationTurnState>(path.join(_
 const storage = new MemoryStorage();
 const app = new Application<ApplicationTurnState>({
   storage,
-  ai: {
-      planner,
-      //moderator,
-      promptManager,
-      prompt: 'chat',
-      history: {
-          assistantHistoryType: 'text'
-      }
-  }
+  ai: 
+  {
+    planner,
+    //moderator,
+    promptManager,
+    prompt: 'chat',
+    history: {
+        assistantHistoryType: 'text'
+    }
+  },
+  botAppId: process.env.BOT_ID,
+  adapter: adapter
 });
 
 interface EntityData {
@@ -253,8 +270,26 @@ app.message('/history', async (context, state) => {
 // Listen for incoming requests.
 server.post("/api/messages", async (req, res) => {
   await adapter.process(req, res, async (context) => {
+    conversationReferences[context.activity.conversation.id] = TurnContext.getConversationReference(context.activity);
+    console.log(JSON.stringify(conversationReferences));
     await app.run(context);
   });
+});
+
+// Listen for incoming notifications and send proactive messages to users.
+server.post('/api/notify', async (req, res) => {
+  console.log(JSON.stringify(conversationReferences));
+  for (const conversationReference of Object.values(conversationReferences)) {
+    const valueStr : string = JSON.stringify(req.body.key);
+    await app.continueConversationAsync(conversationReference, async (context) => {
+      await context.sendActivity(valueStr);
+    });
+  }
+
+  res.setHeader('Content-Type', 'text/html');
+  res.writeHead(200);
+  res.write('<html><body><h1>Proactive messages have been sent.</h1></body></html>');
+  res.end();
 });
 
 async function readJsonFile(riskyUser: string): Promise<AlertsData[]> {
