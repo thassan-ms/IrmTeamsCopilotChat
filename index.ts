@@ -15,6 +15,10 @@ import {
   MemoryStorage,
   BotAdapter,
   CardFactory,
+  Activity,
+  ActivityTypes,
+  ConversationReference,
+  Channels
 } from "botbuilder";
 import { AdaptiveCards } from "@microsoft/adaptivecards-tools";
 
@@ -123,15 +127,18 @@ const promptManager = new DefaultPromptManager<ApplicationTurnState>(path.join(_
 const storage = new MemoryStorage();
 const app = new Application<ApplicationTurnState>({
   storage,
-  ai: {
-      planner,
-      //moderator,
-      promptManager,
-      prompt: 'chat',
-      history: {
-          assistantHistoryType: 'text'
-      }
-  }
+  ai: 
+  {
+    planner,
+    //moderator,
+    promptManager,
+    prompt: 'chat',
+    history: {
+        assistantHistoryType: 'text'
+    }
+  },
+  botAppId: process.env.BOT_ID,
+  adapter: adapter
 });
 
 interface EntityData {
@@ -217,6 +224,7 @@ app.message('/history', async (context, state) => {
 server.post("/api/messages", async (req, res) => {
   await adapter.process(req, res, async (context) => {
     conversationReferences[context.activity.conversation.id] = TurnContext.getConversationReference(context.activity);
+    console.log(JSON.stringify(conversationReferences));
     await app.run(context);
   });
 });
@@ -234,10 +242,10 @@ server.post('/api/notify', async (req, res) => {
   console.log(JSON.stringify(conversationReferences));
   for (const conversationReference of Object.values(conversationReferences)) {
     const msg = req.body.key;
-    await notAdapter.continueConversation(conversationReference, async (context) => {
-      const card = AdaptiveCards.declareWithoutData(msg).render();
-      await context.sendActivity({ attachments: [CardFactory.adaptiveCard(card)] });
-      //await context.sendActivity('proactive hello');
+    await app.continueConversationAsync(conversationReference, async (context) => {
+      // const card = AdaptiveCards.declareWithoutData(msg).render();
+      // await context.sendActivity({ attachments: [CardFactory.adaptiveCard(card)] });
+      await context.sendActivity(msg);
     });
   }
 
@@ -261,3 +269,26 @@ async function readJsonFile(riskyUser: string): Promise<any> {
     throw new Error(`Error reading JSON file: ${error}`);
   }
 }
+
+// function getConversationReference(activity: Partial<Activity>): Partial<ConversationReference> {
+//   return {
+//       activityId: getAppropriateReplyToId(activity),
+//       user: shallowCopy(activity.from),
+//       bot: shallowCopy(activity.recipient),
+//       conversation: shallowCopy(activity.conversation),
+//       channelId: activity.channelId,
+//       locale: activity.locale,
+//       serviceUrl: activity.serviceUrl,
+//   };
+// }
+
+// function getAppropriateReplyToId(source: Partial<Activity>): string | undefined {
+//   if (
+//       source.type !== ActivityTypes.ConversationUpdate ||
+//       (source.channelId !== Channels.Directline && source.channelId !== Channels.Webchat)
+//   ) {
+//       return source.id;
+//   }
+
+//   return undefined;
+// }
