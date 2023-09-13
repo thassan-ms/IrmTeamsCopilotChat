@@ -13,7 +13,25 @@ import {
   ConfigurationBotFrameworkAuthentication,
   TurnContext,
   MemoryStorage,
+  BotAdapter,
+  CardFactory,
 } from "botbuilder";
+import { AdaptiveCards } from "@microsoft/adaptivecards-tools";
+
+const {  BotFrameworkAdapter } = require("botbuilder");
+const { TeamsBot } = require("./teamsBot");
+import rawWelcomeCard from "./adaptiveCards/welcome.json";
+
+// // Create adapter.
+// // See https://aka.ms/about-bot-adapter to learn more about adapters.
+const notAdapter = new BotFrameworkAdapter({
+  appId: process.env.BOT_ID,
+  appPassword: process.env.BOT_PASSWORD,
+});
+
+// Create the bot that will handle incoming messages.
+const conversationReferences = {};
+const bot = new TeamsBot(conversationReferences);
 
 // This bot's main dialog.
 //import { TeamsBot } from "./teamsBot";
@@ -198,8 +216,35 @@ app.message('/history', async (context, state) => {
 // Listen for incoming requests.
 server.post("/api/messages", async (req, res) => {
   await adapter.process(req, res, async (context) => {
+    conversationReferences[context.activity.conversation.id] = TurnContext.getConversationReference(context.activity);
     await app.run(context);
   });
+});
+
+// Listen for incoming requests.
+// server.post("/api/messages", async (req, res) => {
+//   await notAdapter.processActivity(req, res, async (context) => {
+//     conversationReferences[context.activity.conversation.id] = TurnContext.getConversationReference(context.activity);
+//     await bot.run(context);
+//   });
+// });
+
+// Listen for incoming notifications and send proactive messages to users.
+server.post('/api/notify', async (req, res) => {
+  console.log(JSON.stringify(conversationReferences));
+  for (const conversationReference of Object.values(conversationReferences)) {
+    const msg = req.body.key;
+    await notAdapter.continueConversation(conversationReference, async (context) => {
+      const card = AdaptiveCards.declareWithoutData(msg).render();
+      await context.sendActivity({ attachments: [CardFactory.adaptiveCard(card)] });
+      //await context.sendActivity('proactive hello');
+    });
+  }
+
+  res.setHeader('Content-Type', 'text/html');
+  res.writeHead(200);
+  res.write('<html><body><h1>Proactive messages have been sent.</h1></body></html>');
+  res.end();
 });
 
 async function readJsonFile(riskyUser: string): Promise<any> {
