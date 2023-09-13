@@ -225,9 +225,9 @@ server.post("/api/messages", async (req, res) => {
 server.post('/api/notify', async (req, res) => {
   console.log(JSON.stringify(conversationReferences));
   for (const conversationReference of Object.values(conversationReferences)) {
-    const msg = req.body.key;
+    const valueStr : string = JSON.stringify(req.body.key);
     await app.continueConversationAsync(conversationReference, async (context) => {
-      await context.sendActivity(msg);
+      await context.sendActivity(valueStr);
     });
   }
 
