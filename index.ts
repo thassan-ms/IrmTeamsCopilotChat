@@ -13,6 +13,7 @@ import {
   ConfigurationBotFrameworkAuthentication,
   TurnContext,
   MemoryStorage,
+  CardFactory,
 } from "botbuilder";
 
 // This bot's main dialog.
@@ -136,6 +137,7 @@ const app = new Application<ApplicationTurnState>({
 interface EntityData {
   riskyUser: string; // <- populated by GPT
   subscribedUser: string;
+  summary: string;
 }
 
 app.ai.action(AI.RateLimitedActionName, async (context, state, data) => {
@@ -217,6 +219,29 @@ app.ai.action("RemoveUserReminder", async (context, state, data: EntityData) => 
 
 app.ai.action("DisplayReminderUserList", async (context, state, data: EntityData) => {
   await context.sendActivity("You are currently subscribed to reminders for the following users: " + state.conversation.value.subscribers);
+  return true;
+});
+
+app.ai.action("displayAdaptiveCardWithSummary", async (context, state, data: EntityData) => {
+  const card = {
+    "type": "AdaptiveCard",
+    "body": [
+        {
+            "type": "TextBlock",
+            "size": "Medium",
+            "weight": "Bolder",
+            "text": `Summary of alerts for user: ${state.conversation.value.riskyUser}`
+        },
+        {
+            "type": "TextBlock",
+            "text": data.summary,
+            "wrap": true
+        }
+    ],
+    "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+    "version": "1.5"
+  }
+  await context.sendActivity({ attachments: [CardFactory.adaptiveCard(card)] });
   return true;
 });
 
