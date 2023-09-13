@@ -220,6 +220,11 @@ app.ai.action("DisplayReminderUserList", async (context, state, data: EntityData
   return true;
 });
 
+app.ai.action("displayAdaptiveCardWithSummary", async (context, state, data: EntityData) => {
+  // send an adaptive card
+  await context.sendActivity({attachments: [data]});
+});
+
 app.message('/history', async (context, state) => {
   const history = ConversationHistory.toString(state, 2000, '\n\n');
   await context.sendActivity(history);

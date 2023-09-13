@@ -11,4 +11,22 @@ Here's a list of alerts for a user represented in json format.
 Please summarize the alerts for the user by identifying the most important parts for an analyst to investigate. 
 In your response, use spaces instead of tabs
 
-Summary:
+Return your response in the following JSON structure:
+{
+    "type": "plan",
+    "commands": [
+        {
+            "type": "DO",
+            "action": "displayAdaptiveCardWithSummary",
+            "entities": {
+                "summary": <summary>
+            }
+        },
+        {
+            "type": "SAY",
+            "response": "<response>"
+        }
+    ]
+}
+
+Response:
