@@ -15,17 +15,6 @@ import {
   MemoryStorage,
   CardFactory,
 } from "botbuilder";
-import { AdaptiveCards } from "@microsoft/adaptivecards-tools";
-
-const {  BotFrameworkAdapter } = require("botbuilder");
-const { TeamsBot } = require("./teamsBot");
-
-// // Create adapter.
-// // See https://aka.ms/about-bot-adapter to learn more about adapters.
-const notAdapter = new BotFrameworkAdapter({
-  appId: process.env.BOT_ID,
-  appPassword: process.env.BOT_PASSWORD,
-});
 
 // Create the bot that will handle incoming messages.
 const conversationReferences = {};
@@ -172,17 +161,29 @@ app.ai.action(AI.FlaggedOutputActionName, async (context, state, data) => {
   return false;
 });
 
+let cachedAlertData: AlertsData[] = [];
+let loadedAlertsFromDb: boolean = false;
 app.ai.action("RetrieveAlerts", async (context, state, data: EntityData) => {
   state.conversation.value.riskyUser = data.riskyUser
-  await readJsonFile(data.riskyUser)
-    .then((jsonData) => {
-      state.conversation.value.alertsList = jsonData.length > 0 ? jsonData : []
-      console.log("Alerts found: " + JSON.stringify(state.conversation.value.alertsList))
-    })
-    .catch((error) => {
-      console.error(error);
-    });
+  if (!loadedAlertsFromDb) {
+    await readJsonFile(data.riskyUser)
+      .then((jsonData) => {
+        loadedAlertsFromDb = true;
+        state.conversation.value.alertsList = jsonData.length > 0 ? jsonData : []
+        cachedAlertData.push(...jsonData);
+        console.log("Alerts found: " + JSON.stringify(state.conversation.value.alertsList))
+      })
+      .catch((error) => {
+        console.error(error);
+      });
+  }
+  
+  state.conversation.value.alertsList = cachedAlertData.filter((item) => {
+    return item.UserPrincipalName.toLowerCase().includes(data.riskyUser.toLowerCase());
+  });
+  
   if (state.conversation.value.alertsList.length > 0) {
+    console.log("Alerts found for " + data.riskyUser + " : " + JSON.stringify(state.conversation.value.alertsList))
     state.temp.value.alertsList = state.conversation.value.alertsList
     await app.ai.chain(context, state, 'summarize');
   }
@@ -194,16 +195,25 @@ app.ai.action("RetrieveAlerts", async (context, state, data: EntityData) => {
 
 app.ai.action("SummarizeAlert", async (context, state, data: EntityData) => {
   state.conversation.value.riskyUser = data.riskyUser
-  await readJsonFile(data.riskyUser)
+  if (!loadedAlertsFromDb) {
+    await readJsonFile(data.riskyUser)
     .then((jsonData) => {
+      loadedAlertsFromDb = true;
       state.conversation.value.alertsList = jsonData.length > 0 ? jsonData : []
+      cachedAlertData.push(...jsonData);
       console.log("Alerts found:" + JSON.stringify(state.conversation.value.alertsList))
-      //console.log("Alerts found")
     })
     .catch((error) => {
       console.error(error);
     });
+  }
+
+  state.conversation.value.alertsList = cachedAlertData.filter((item) => {
+    return item.UserPrincipalName.toLowerCase().includes(data.riskyUser.toLowerCase());
+  });
+  
   if (state.conversation.value.alertsList.length > 0) {
+    console.log("Alerts found for " + data.riskyUser + " : " + JSON.stringify(state.conversation.value.alertsList))
     state.temp.value.alertsList = state.conversation.value.alertsList
     await app.ai.chain(context, state, 'summarize');
   }
@@ -271,7 +281,6 @@ app.message('/history', async (context, state) => {
 server.post("/api/messages", async (req, res) => {
   await adapter.process(req, res, async (context) => {
     conversationReferences[context.activity.conversation.id] = TurnContext.getConversationReference(context.activity);
-    console.log(JSON.stringify(conversationReferences));
     await app.run(context);
   });
 });
@@ -280,9 +289,9 @@ server.post("/api/messages", async (req, res) => {
 server.post('/api/notify', async (req, res) => {
   console.log(JSON.stringify(conversationReferences));
   for (const conversationReference of Object.values(conversationReferences)) {
-    const valueStr : string = JSON.stringify(req.body.key);
     await app.continueConversationAsync(conversationReference, async (context) => {
-      await context.sendActivity(valueStr);
+      await context.sendActivity("Received new alert for user: " + req.body.key[0].UserPrincipalName);
+      cachedAlertData.push(...req.body.key);
     });
   }
 
@@ -297,9 +306,7 @@ async function readJsonFile(riskyUser: string): Promise<AlertsData[]> {
 
   try {
     const fileContent = await readFileAsync(filePath, 'utf8');
-    const jsonData = JSON.parse(fileContent).filter((item) => {
-      return item.UserPrincipalName.toLowerCase().includes(riskyUser.toLowerCase());
-    });
+    const jsonData = JSON.parse(fileContent);
   
     return jsonData;
   } catch (error) {
