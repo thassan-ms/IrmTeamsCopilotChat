@@ -21,10 +21,6 @@ Return your response in the following JSON structure:
             "entities": {
                 "summary": <summary>
             }
-        },
-        {
-            "type": "SAY",
-            "response": "<response>"
         }
     ]
 }
